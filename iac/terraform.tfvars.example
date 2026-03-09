@@ -1,0 +1,51 @@
+region      = "us-east-1"
+aws_profile = "client-a-dev"
+
+# Optional cross-account role
+aws_assume_role_arn          = null
+aws_assume_role_session_name = "terraform-environment-scheduler"
+
+client      = "client-a"
+environment = "dev"
+application = "environment-scheduler"
+
+# Keep null to auto-generate name:
+# <client>-<environment>-<application>-state-<account-id>-<region>
+state_bucket_name = null
+state_object_key  = "environment-scheduler/state.json"
+
+state_bucket_force_destroy          = false
+state_access_log_bucket_name        = null
+state_access_log_prefix             = "server-access-logs/"
+state_bucket_sse_algorithm          = "AES256"
+state_bucket_kms_key_arn            = null
+state_bucket_lifecycle_current_days = 90
+state_bucket_lifecycle_noncurrent_days = 30
+
+lambda_runtime     = "python3.12"
+lambda_handler     = "handler.lambda_handler"
+lambda_timeout     = 900
+lambda_memory_size = 512
+log_retention_days = 30
+log_level          = "INFO"
+dry_run            = false
+
+# Optional wait after start before ECS/EKS restore.
+restore_delay_seconds = 60
+
+eks_excluded_namespaces = [
+  "kube-system",
+  "kube-public",
+  "kube-node-lease",
+]
+
+schedule_timezone         = "America/Sao_Paulo"
+start_schedule_expression = "cron(0 8 ? * MON-FRI *)"
+stop_schedule_expression  = "cron(0 20 ? * MON-FRI *)"
+scheduler_state           = "ENABLED"
+
+tags = {
+  Owner      = "platform-team"
+  CostCenter = "shared-services"
+  Terraform  = "true"
+}
