@@ -111,8 +111,8 @@ enable_drift_detection                     = true
 drift_detection_schedule_expression        = "cron(0 11 * * ? *)"
 drift_detection_storage_bucket_name        = null
 drift_detection_baseline_object_key        = "drift/baseline.json"
-drift_detection_publish_initial_baseline   = false
-drift_detection_initial_baseline_file_path = null
+drift_detection_publish_initial_baseline   = true
+drift_detection_initial_baseline_file_path = "../../drift/baseline.initial.json"
 drift_detection_report_prefix              = "drift-reports"
 drift_detection_dry_run                    = true
 

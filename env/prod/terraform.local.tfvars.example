@@ -1,0 +1,3 @@
+# Local-only sensitive overrides (do not commit as terraform.local.tfvars).
+approval_bridge_chatops_webhook_url = "https://chatops.example.com/webhook/replace-me"
+approval_bridge_itsm_webhook_url    = "https://itsm.example.com/webhook/replace-me"

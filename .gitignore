@@ -14,3 +14,4 @@ modules/lambda_automation/*.zip
 *.pyc
 __pycache__/
 .pytest_cache/
+env/*/terraform.local.tfvars

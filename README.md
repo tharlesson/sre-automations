@@ -74,14 +74,23 @@ Esta base entrega **P0 + P1 implementados** com padrao modular e pronto para exp
 |-- drift/
 |   |-- baseline.initial.json
 |   |-- README.md
+|   |-- generate_baseline_from_aws.py
+|-- scripts/
+|   |-- seed_drift_baseline.ps1
+|   |-- configure_approval_webhooks.ps1
+|   |-- run_sg_remediation_approval.ps1
 |-- env/
 |   |-- dev/
 |   |-- stage/
 |   |-- prod/
 |-- tests/
 |   |-- lambdas/
+|   |-- tools/
+|-- runbooks/
+|   |-- post-apply-sop.md
 |-- Makefile
 |-- requirements-dev.txt
+|-- .github/workflows/terraform-ci.yml
 |-- .github/workflows/terraform-ci.yml.example
 ```
 
@@ -200,6 +209,10 @@ Edite:
 - `env/stage/terraform.tfvars`
 - `env/prod/terraform.tfvars`
 
+Opcional (segredos locais, sem commit):
+- copie `env/<ambiente>/terraform.local.tfvars.example` para `env/<ambiente>/terraform.local.tfvars`
+- preencha `approval_bridge_chatops_webhook_url` e/ou `approval_bridge_itsm_webhook_url`
+
 ### 3. Inicializar e aplicar
 
 ```bash
@@ -220,6 +233,13 @@ cd ../prod
 terraform init -reconfigure -backend-config=../../env/prod/backend.hcl
 terraform plan  -var-file=../../env/prod/terraform.tfvars
 terraform apply -var-file=../../env/prod/terraform.tfvars
+```
+
+Com webhooks locais:
+
+```bash
+terraform plan  -var-file=../../env/dev/terraform.tfvars -var-file=../../env/dev/terraform.local.tfvars
+terraform apply -var-file=../../env/dev/terraform.tfvars -var-file=../../env/dev/terraform.local.tfvars
 ```
 
 ## Comandos utilitarios
@@ -247,24 +267,35 @@ make test
   - `AWS/States` metric `ExecutionsFailed`
 
 ## CI sugerido
-Arquivo exemplo: `.github/workflows/terraform-ci.yml.example`
+Workflow ativo: `.github/workflows/terraform-ci.yml`
 - `terraform fmt -check`
 - `terraform validate`
 - `terraform plan` por stack
+- `pytest -q tests`
 
 ## Testes
 Testes minimos em `tests/lambdas` para validar comportamento base dos handlers P0/P1.
+Inclui tambem testes utilitarios em `tests/tools`.
 
 ```bash
 pip install -r requirements-dev.txt
 pytest -q tests
 ```
 
+## Runbooks operacionais
+- SOP de validacao pos-apply: `runbooks/post-apply-sop.md`
+
 ## Proximos passos sugeridos
-1. Popular `drift/baseline.initial.json` com recursos reais do ambiente.
-2. Habilitar `drift_detection_publish_initial_baseline=true` no primeiro apply.
-3. Configurar webhooks `approval_bridge_chatops_webhook_url` e/ou `approval_bridge_itsm_webhook_url`.
-4. Executar runbook SSM `${name_prefix}-sg-remediation-approval` para aprovacao operacional.
+1. Gerar baseline real:
+   - `./scripts/seed_drift_baseline.ps1 -Environment dev -EnablePublishOnFirstApply`
+2. Configurar webhooks de aprovacao:
+   - `./scripts/configure_approval_webhooks.ps1 -Environment dev -ChatOpsWebhookUrl "<url>" -ITSMWebhookUrl "<url>"`
+3. Rodar primeiro apply (com baseline publish em `true`):
+   - `terraform apply -var-file=../../env/dev/terraform.tfvars -var-file=../../env/dev/terraform.local.tfvars`
+4. Executar runbook SSM de aprovacao operacional:
+   - `./scripts/run_sg_remediation_approval.ps1 -Environment dev -Region us-east-1 -Project sreauto -Profile my-dev-profile -DryRun $true`
+5. Depois do primeiro apply, retornar:
+   - `drift_detection_publish_initial_baseline = false` no `env/dev/terraform.tfvars`
 
 ## Notas de design
 - Nao foram usados modulos comunitarios genericos para logica principal das automacoes.

@@ -57,3 +57,72 @@ def test_approval_bridge_keyword_detection():
 
     assert mod._is_approval_message("[SRE][SGRemediation] Aprovacao manual requerida", "pending_approval")
     assert not mod._is_approval_message("General notification", "all good")
+
+
+def test_approval_bridge_skips_non_approval_when_filter_enabled():
+    mod = load_module("lambdas/p1_approval_bridge/handler.py", "p1_approval_bridge_handler")
+
+    mod.CHATOPS_WEBHOOK_URL = "https://chatops.example.com/hook"
+    mod.ITSM_WEBHOOK_URL = ""
+    mod.FORWARD_ONLY_APPROVAL_MESSAGES = True
+
+    calls = []
+
+    def fake_post(url, payload):
+        calls.append((url, payload))
+
+    mod._post_webhook = fake_post
+
+    result = mod.lambda_handler(
+        {
+            "Records": [
+                {
+                    "Sns": {
+                        "Subject": "General notification",
+                        "Message": "all good",
+                    }
+                }
+            ]
+        },
+        None,
+    )
+
+    assert result["records"] == 1
+    assert result["forwarded"] == 0
+    assert result["skipped"] == 1
+    assert calls == []
+
+
+def test_approval_bridge_forwards_approval_message():
+    mod = load_module("lambdas/p1_approval_bridge/handler.py", "p1_approval_bridge_handler")
+
+    mod.CHATOPS_WEBHOOK_URL = "https://chatops.example.com/hook"
+    mod.ITSM_WEBHOOK_URL = ""
+    mod.FORWARD_ONLY_APPROVAL_MESSAGES = True
+
+    calls = []
+
+    def fake_post(url, payload):
+        calls.append((url, payload))
+
+    mod._post_webhook = fake_post
+
+    result = mod.lambda_handler(
+        {
+            "Records": [
+                {
+                    "Sns": {
+                        "Subject": "[SRE][SGRemediation] approval required",
+                        "Message": "{\"request_id\":\"abc123\"}",
+                    }
+                }
+            ]
+        },
+        None,
+    )
+
+    assert result["records"] == 1
+    assert result["forwarded"] == 1
+    assert result["skipped"] == 0
+    assert len(calls) == 1
+    assert calls[0][1]["message"]["request_id"] == "abc123"

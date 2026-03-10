@@ -1,0 +1,62 @@
+name: terraform-ci
+
+on:
+  pull_request:
+    branches: ["master", "main"]
+  workflow_dispatch:
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        stack: [dev, stage, prod]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.14.6
+
+      - name: Terraform fmt
+        run: terraform fmt -check -recursive
+
+      - name: Terraform init (no backend)
+        working-directory: stacks/${{ matrix.stack }}
+        run: terraform init -backend=false
+
+      - name: Terraform validate
+        working-directory: stacks/${{ matrix.stack }}
+        run: terraform validate
+
+      - name: Terraform plan (speculative)
+        working-directory: stacks/${{ matrix.stack }}
+        env:
+          AWS_REGION: us-east-1
+          AWS_DEFAULT_REGION: us-east-1
+          AWS_ACCESS_KEY_ID: dummy
+          AWS_SECRET_ACCESS_KEY: dummy
+          AWS_EC2_METADATA_DISABLED: "true"
+        run: terraform plan -var-file=../../env/${{ matrix.stack }}/terraform.tfvars -refresh=false -lock=false -input=false
+
+  python-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Run tests
+        run: pytest -q tests
