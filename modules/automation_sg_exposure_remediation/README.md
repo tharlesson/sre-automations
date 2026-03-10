@@ -5,3 +5,4 @@ Automacao P1 para remediacao de Security Groups expostos:
 - workflow Step Functions com gate de aprovacao manual
 - remediacao opcional e controlada por flags
 - dry-run suportado
+- suporte a topico SNS dedicado para pedidos de aprovacao

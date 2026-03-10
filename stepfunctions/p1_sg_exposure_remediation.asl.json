@@ -128,7 +128,7 @@
       "Type": "Task",
       "Resource": "arn:aws:states:::sns:publish",
       "Parameters": {
-        "TopicArn": "${sns_topic_arn}",
+        "TopicArn": "${approval_sns_topic_arn}",
         "Subject": "[SRE][SGRemediation] Aprovacao manual requerida",
         "Message": "Executar manualmente com approved=true para aplicar remediacao."
       },

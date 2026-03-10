@@ -11,7 +11,18 @@ locals {
         Effect = "Allow"
         Action = [
           "ce:GetCostAndUsage",
-          "ce:GetDimensionValues"
+          "ce:GetDimensionValues",
+          "ce:GetSavingsPlansUtilization",
+          "ce:GetReservationUtilization"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "ComputeOptimizerRead"
+        Effect = "Allow"
+        Action = [
+          "compute-optimizer:GetEnrollmentStatus",
+          "compute-optimizer:GetEC2InstanceRecommendations"
         ]
         Resource = "*"
       },
@@ -102,12 +113,16 @@ module "lambda" {
   tags                  = var.tags
 
   environment_variables = {
-    REPORT_BUCKET          = local.effective_bucket_name
-    REPORT_PREFIX          = var.report_prefix
-    LOOKBACK_DAYS          = tostring(var.lookback_days)
-    GROUP_BY_TAG_KEYS_JSON = jsonencode(var.group_by_tag_keys)
-    SNS_TOPIC_ARN          = coalesce(var.sns_topic_arn, "")
-    DRY_RUN                = tostring(var.dry_run)
+    REPORT_BUCKET                  = local.effective_bucket_name
+    REPORT_PREFIX                  = var.report_prefix
+    LOOKBACK_DAYS                  = tostring(var.lookback_days)
+    GROUP_BY_TAG_KEYS_JSON         = jsonencode(var.group_by_tag_keys)
+    INCLUDE_SAVINGS_PLANS_ANALYSIS = tostring(var.include_savings_plans_analysis)
+    INCLUDE_RESERVATION_ANALYSIS   = tostring(var.include_reservation_analysis)
+    INCLUDE_RIGHTSIZING_ANALYSIS   = tostring(var.include_rightsizing_analysis)
+    RIGHTSIZING_MAX_RESULTS        = tostring(var.rightsizing_max_results)
+    SNS_TOPIC_ARN                  = coalesce(var.sns_topic_arn, "")
+    DRY_RUN                        = tostring(var.dry_run)
   }
 }
 

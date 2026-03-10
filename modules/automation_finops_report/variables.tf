@@ -50,6 +50,30 @@ variable "group_by_tag_keys" {
   default     = ["Environment", "Application", "CostCenter"]
 }
 
+variable "include_savings_plans_analysis" {
+  description = "Include Savings Plans utilization analysis in report."
+  type        = bool
+  default     = true
+}
+
+variable "include_reservation_analysis" {
+  description = "Include RI utilization/coverage analysis in report."
+  type        = bool
+  default     = true
+}
+
+variable "include_rightsizing_analysis" {
+  description = "Include EC2 rightsizing recommendations (Compute Optimizer)."
+  type        = bool
+  default     = true
+}
+
+variable "rightsizing_max_results" {
+  description = "Maximum number of rightsizing recommendations fetched."
+  type        = number
+  default     = 50
+}
+
 variable "sns_topic_arn" {
   description = "Optional SNS topic ARN for report notifications."
   type        = string

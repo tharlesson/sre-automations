@@ -66,6 +66,12 @@ variable "sns_topic_arn" {
   type        = string
 }
 
+variable "approval_sns_topic_arn" {
+  description = "Optional SNS topic ARN dedicated to approval requests."
+  type        = string
+  default     = null
+}
+
 variable "lambda_timeout" {
   description = "Lambda timeout in seconds."
   type        = number

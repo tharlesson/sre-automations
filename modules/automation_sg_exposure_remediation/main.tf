@@ -1,6 +1,7 @@
 locals {
-  lambda_name   = "${var.name_prefix}-sg-exposure-remediation"
-  workflow_name = "${var.name_prefix}-sg-exposure-remediation"
+  lambda_name        = "${var.name_prefix}-sg-exposure-remediation"
+  workflow_name      = "${var.name_prefix}-sg-exposure-remediation"
+  approval_topic_arn = coalesce(var.approval_sns_topic_arn, var.sns_topic_arn)
 
   lambda_policy = {
     Version = "2012-10-17"
@@ -44,7 +45,10 @@ locals {
         Action = [
           "sns:Publish"
         ]
-        Resource = var.sns_topic_arn
+        Resource = [
+          var.sns_topic_arn,
+          local.approval_topic_arn,
+        ]
       }
     ]
   }
@@ -79,8 +83,9 @@ module "workflow" {
   name            = local.workflow_name
   definition_path = var.stepfunction_definition_path
   definition_vars = {
-    sg_lambda_arn = module.worker_lambda.function_arn
-    sns_topic_arn = var.sns_topic_arn
+    sg_lambda_arn          = module.worker_lambda.function_arn
+    sns_topic_arn          = var.sns_topic_arn
+    approval_sns_topic_arn = local.approval_topic_arn
   }
   iam_policy_json    = jsonencode(local.sfn_policy)
   log_retention_days = var.log_retention_days

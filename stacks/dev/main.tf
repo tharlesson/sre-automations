@@ -16,10 +16,23 @@ resource "aws_sns_topic" "automation_alerts" {
   tags = module.common.tags
 }
 
+resource "aws_sns_topic" "approval_requests" {
+  name = "${module.common.name_prefix}-approval-requests"
+  tags = module.common.tags
+}
+
 resource "aws_sns_topic_subscription" "email" {
   for_each = toset(var.automation_alert_email_endpoints)
 
   topic_arn = aws_sns_topic.automation_alerts.arn
+  protocol  = "email"
+  endpoint  = each.value
+}
+
+resource "aws_sns_topic_subscription" "approval_email" {
+  for_each = toset(var.approval_alert_email_endpoints)
+
+  topic_arn = aws_sns_topic.approval_requests.arn
   protocol  = "email"
   endpoint  = each.value
 }
@@ -64,6 +77,36 @@ resource "aws_ssm_document" "service_restart" {
   tags            = module.common.tags
 }
 
+resource "aws_ssm_document" "sg_remediation_approval" {
+  count = var.enable_ssm_documents && var.enable_sg_exposure_remediation ? 1 : 0
+
+  name            = "${module.common.name_prefix}-sg-remediation-approval"
+  document_type   = "Automation"
+  document_format = "YAML"
+  content = templatefile("${path.root}/../../ssm/documents/sg_remediation_approval.yaml.tmpl", {
+    state_machine_arn = module.sg_exposure_remediation[0].state_machine_arn
+  })
+  tags = module.common.tags
+}
+
+module "approval_bridge" {
+  count  = var.enable_approval_bridge ? 1 : 0
+  source = "../../modules/automation_approval_bridge"
+
+  name_prefix                    = module.common.name_prefix
+  lambda_source_dir              = "${path.root}/../../lambdas/p1_approval_bridge"
+  enabled                        = true
+  sns_topic_arn                  = aws_sns_topic.approval_requests.arn
+  chatops_webhook_url            = var.approval_bridge_chatops_webhook_url
+  itsm_webhook_url               = var.approval_bridge_itsm_webhook_url
+  forward_only_approval_messages = var.approval_bridge_forward_only_approval_messages
+  http_timeout_seconds           = var.approval_bridge_http_timeout_seconds
+  lambda_timeout                 = 60
+  lambda_memory_size             = 128
+  log_retention_days             = var.log_retention_days
+  tags                           = module.common.tags
+}
+
 module "ssm_runbooks" {
   count  = var.enable_ssm_runbooks_automation ? 1 : 0
   source = "../../modules/automation_ssm_runbooks"
@@ -84,7 +127,7 @@ module "ssm_runbooks" {
   require_manual_approval      = var.ssm_runbook_require_manual_approval
   dry_run                      = var.ssm_runbook_dry_run
   sns_topic_arn                = aws_sns_topic.automation_alerts.arn
-  approval_sns_topic_arn       = var.ssm_runbook_approval_sns_topic_arn
+  approval_sns_topic_arn       = coalesce(var.ssm_runbook_approval_sns_topic_arn, aws_sns_topic.approval_requests.arn)
   lambda_timeout               = 300
   lambda_memory_size           = 256
   log_retention_days           = var.log_retention_days
@@ -242,6 +285,7 @@ module "sg_exposure_remediation" {
   require_manual_approval      = var.sg_remediation_require_manual_approval
   dry_run                      = var.sg_remediation_dry_run
   sns_topic_arn                = aws_sns_topic.automation_alerts.arn
+  approval_sns_topic_arn       = coalesce(var.sg_remediation_approval_sns_topic_arn, aws_sns_topic.approval_requests.arn)
   lambda_timeout               = 300
   lambda_memory_size           = 256
   log_retention_days           = var.log_retention_days
@@ -252,45 +296,52 @@ module "finops_report" {
   count  = var.enable_finops_report ? 1 : 0
   source = "../../modules/automation_finops_report"
 
-  name_prefix         = module.common.name_prefix
-  lambda_source_dir   = "${path.root}/../../lambdas/p1_finops_report"
-  enabled             = true
-  schedule_expression = var.finops_report_schedule_expression
-  schedule_timezone   = var.schedule_timezone
-  report_bucket_name  = var.finops_report_bucket_name
-  report_prefix       = var.finops_report_prefix
-  lookback_days       = var.finops_report_lookback_days
-  group_by_tag_keys   = var.finops_report_group_by_tag_keys
-  sns_topic_arn       = aws_sns_topic.automation_alerts.arn
-  dry_run             = var.finops_report_dry_run
-  lambda_timeout      = 900
-  lambda_memory_size  = 512
-  log_retention_days  = var.log_retention_days
-  tags                = module.common.tags
+  name_prefix                    = module.common.name_prefix
+  lambda_source_dir              = "${path.root}/../../lambdas/p1_finops_report"
+  enabled                        = true
+  schedule_expression            = var.finops_report_schedule_expression
+  schedule_timezone              = var.schedule_timezone
+  report_bucket_name             = var.finops_report_bucket_name
+  report_prefix                  = var.finops_report_prefix
+  lookback_days                  = var.finops_report_lookback_days
+  group_by_tag_keys              = var.finops_report_group_by_tag_keys
+  include_savings_plans_analysis = var.finops_include_savings_plans_analysis
+  include_reservation_analysis   = var.finops_include_reservation_analysis
+  include_rightsizing_analysis   = var.finops_include_rightsizing_analysis
+  rightsizing_max_results        = var.finops_rightsizing_max_results
+  sns_topic_arn                  = aws_sns_topic.automation_alerts.arn
+  dry_run                        = var.finops_report_dry_run
+  lambda_timeout                 = 900
+  lambda_memory_size             = 512
+  log_retention_days             = var.log_retention_days
+  tags                           = module.common.tags
 }
 
 module "drift_detection" {
   count  = var.enable_drift_detection ? 1 : 0
   source = "../../modules/automation_drift_detection"
 
-  name_prefix         = module.common.name_prefix
-  lambda_source_dir   = "${path.root}/../../lambdas/p1_drift_detection"
-  enabled             = true
-  schedule_expression = var.drift_detection_schedule_expression
-  schedule_timezone   = var.schedule_timezone
-  storage_bucket_name = var.drift_detection_storage_bucket_name
-  baseline_object_key = var.drift_detection_baseline_object_key
-  report_prefix       = var.drift_detection_report_prefix
-  sns_topic_arn       = aws_sns_topic.automation_alerts.arn
-  dry_run             = var.drift_detection_dry_run
-  lambda_timeout      = 900
-  lambda_memory_size  = 512
-  log_retention_days  = var.log_retention_days
-  tags                = module.common.tags
+  name_prefix              = module.common.name_prefix
+  lambda_source_dir        = "${path.root}/../../lambdas/p1_drift_detection"
+  enabled                  = true
+  schedule_expression      = var.drift_detection_schedule_expression
+  schedule_timezone        = var.schedule_timezone
+  storage_bucket_name      = var.drift_detection_storage_bucket_name
+  baseline_object_key      = var.drift_detection_baseline_object_key
+  publish_initial_baseline = var.drift_detection_publish_initial_baseline
+  initial_baseline_content = var.drift_detection_publish_initial_baseline ? file(coalesce(var.drift_detection_initial_baseline_file_path, "${path.root}/../../drift/baseline.initial.json")) : null
+  report_prefix            = var.drift_detection_report_prefix
+  sns_topic_arn            = aws_sns_topic.automation_alerts.arn
+  dry_run                  = var.drift_detection_dry_run
+  lambda_timeout           = 900
+  lambda_memory_size       = 512
+  log_retention_days       = var.log_retention_days
+  tags                     = module.common.tags
 }
 
 locals {
   lambda_function_names = concat(
+    var.enable_approval_bridge ? [module.approval_bridge[0].lambda_function_name] : [],
     var.enable_ssm_runbooks_automation ? [module.ssm_runbooks[0].lambda_function_name] : [],
     var.enable_scheduler ? [module.scheduler[0].lambda_function_name] : [],
     var.enable_tag_auditor ? [module.tag_auditor[0].lambda_function_name] : [],

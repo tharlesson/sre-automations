@@ -3,7 +3,7 @@ import io
 import json
 import os
 from datetime import date, datetime, timedelta, timezone
-from typing import Any, Dict, Iterable, List, Tuple
+from typing import Any, Dict, List
 
 import boto3
 
@@ -12,10 +12,15 @@ LOOKBACK_DAYS = int(os.getenv("LOOKBACK_DAYS", "30"))
 REPORT_BUCKET = os.getenv("REPORT_BUCKET", "")
 REPORT_PREFIX = os.getenv("REPORT_PREFIX", "finops-reports")
 GROUP_BY_TAG_KEYS = json.loads(os.getenv("GROUP_BY_TAG_KEYS_JSON", '["Environment","Application","CostCenter"]'))
+INCLUDE_SAVINGS_PLANS_ANALYSIS = os.getenv("INCLUDE_SAVINGS_PLANS_ANALYSIS", "true").lower() == "true"
+INCLUDE_RESERVATION_ANALYSIS = os.getenv("INCLUDE_RESERVATION_ANALYSIS", "true").lower() == "true"
+INCLUDE_RIGHTSIZING_ANALYSIS = os.getenv("INCLUDE_RIGHTSIZING_ANALYSIS", "true").lower() == "true"
+RIGHTSIZING_MAX_RESULTS = int(os.getenv("RIGHTSIZING_MAX_RESULTS", "50"))
 SNS_TOPIC_ARN = os.getenv("SNS_TOPIC_ARN", "")
 DRY_RUN = os.getenv("DRY_RUN", "false").lower() == "true"
 
 CE = boto3.client("ce")
+CO = boto3.client("compute-optimizer")
 S3 = boto3.client("s3")
 SNS = boto3.client("sns")
 
@@ -45,7 +50,17 @@ def lambda_handler(event: Dict[str, Any], _context: Any) -> Dict[str, Any]:
     for tag_key in GROUP_BY_TAG_KEYS:
         by_tags[tag_key] = _fetch_grouped_costs(start_date, end_date, [{"Type": "TAG", "Key": tag_key}])
 
-    top_wastes = _compute_top_wastes(by_service=by_service, by_tags=by_tags)
+    savings_plans = _fetch_savings_plans_utilization(start_date, end_date) if INCLUDE_SAVINGS_PLANS_ANALYSIS else {}
+    reservations = _fetch_reservation_utilization(start_date, end_date) if INCLUDE_RESERVATION_ANALYSIS else {}
+    rightsizing = _fetch_rightsizing_recommendations() if INCLUDE_RIGHTSIZING_ANALYSIS else {}
+
+    top_wastes = _compute_top_wastes(
+        by_service=by_service,
+        by_tags=by_tags,
+        savings_plans=savings_plans,
+        reservations=reservations,
+        rightsizing=rightsizing,
+    )
 
     report = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -59,13 +74,17 @@ def lambda_handler(event: Dict[str, Any], _context: Any) -> Dict[str, Any]:
         "cost_by_account": by_account,
         "cost_by_service": by_service,
         "cost_by_tags": by_tags,
+        "savings_plans_utilization": savings_plans,
+        "reservation_utilization": reservations,
+        "rightsizing_recommendations": rightsizing,
         "top_wastes": top_wastes,
     }
 
     csv_files = {
         "services": _to_csv(by_service, ["group", "amount", "unit"]),
         "accounts": _to_csv(by_account, ["group", "amount", "unit"]),
-        "wastes": _to_csv(top_wastes, ["category", "group", "amount", "unit"]),
+        "wastes": _to_csv(top_wastes, ["category", "group", "amount", "unit", "details"]),
+        "rightsizing": _to_csv(rightsizing.get("recommendations", []), ["account_id", "instance_arn", "current_type", "recommended_type", "estimated_monthly_savings", "currency"]),
     }
 
     storage = _store_report(report, csv_files)
@@ -79,7 +98,7 @@ def lambda_handler(event: Dict[str, Any], _context: Any) -> Dict[str, Any]:
     }
 
     _notify(response)
-    _log("finops_report_finished", status=response["status"], files=len(storage))
+    _log("finops_report_finished", status=response["status"], files=len(storage), wastes=len(top_wastes))
     return response
 
 
@@ -141,7 +160,140 @@ def _fetch_grouped_costs(start_date: date, end_date: date, group_by: List[Dict[s
     return rows
 
 
-def _compute_top_wastes(by_service: List[Dict[str, Any]], by_tags: Dict[str, List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
+def _fetch_savings_plans_utilization(start_date: date, end_date: date) -> Dict[str, Any]:
+    try:
+        response = CE.get_savings_plans_utilization(
+            TimePeriod={"Start": start_date.isoformat(), "End": end_date.isoformat()},
+            Granularity="MONTHLY",
+        )
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "available": False,
+            "error": str(exc),
+            "unused_commitment": 0.0,
+            "utilization_percentage": None,
+        }
+
+    periods = response.get("SavingsPlansUtilizationsByTime", [])
+    total_unused = 0.0
+    total_commitment = 0.0
+    utilization_pct = None
+
+    if periods:
+        utilization = periods[-1].get("Utilization", {})
+        total_unused = float(utilization.get("UnusedCommitment", "0") or 0)
+        total_commitment = float(utilization.get("TotalCommitment", "0") or 0)
+        utilization_pct = float(utilization.get("UtilizationPercentage", "0") or 0)
+
+    return {
+        "available": True,
+        "unused_commitment": round(total_unused, 2),
+        "total_commitment": round(total_commitment, 2),
+        "utilization_percentage": round(utilization_pct, 2) if utilization_pct is not None else None,
+    }
+
+
+def _fetch_reservation_utilization(start_date: date, end_date: date) -> Dict[str, Any]:
+    try:
+        response = CE.get_reservation_utilization(
+            TimePeriod={"Start": start_date.isoformat(), "End": end_date.isoformat()},
+            Granularity="MONTHLY",
+        )
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "available": False,
+            "error": str(exc),
+            "unused_amount": 0.0,
+            "utilization_percentage": None,
+        }
+
+    periods = response.get("UtilizationsByTime", [])
+    unused_amount = 0.0
+    utilization_pct = None
+
+    if periods:
+        total = periods[-1].get("Total", {})
+        unused_amount = float(total.get("UnusedAmortizedUpfrontFeePlusUnusedRecurringFee", "0") or 0)
+        utilization_pct = float(total.get("UtilizationPercentage", "0") or 0)
+
+    return {
+        "available": True,
+        "unused_amount": round(unused_amount, 2),
+        "utilization_percentage": round(utilization_pct, 2) if utilization_pct is not None else None,
+    }
+
+
+def _fetch_rightsizing_recommendations() -> Dict[str, Any]:
+    try:
+        enrollment = CO.get_enrollment_status()
+        if enrollment.get("status") != "Active":
+            return {
+                "available": False,
+                "reason": f"Compute Optimizer enrollment status is {enrollment.get('status')}",
+                "recommendations": [],
+                "total_estimated_monthly_savings": 0.0,
+                "currency": "USD",
+            }
+
+        recommendations: List[Dict[str, Any]] = []
+        next_token = None
+        while True:
+            payload: Dict[str, Any] = {"maxResults": RIGHTSIZING_MAX_RESULTS}
+            if next_token:
+                payload["nextToken"] = next_token
+
+            response = CO.get_ec2_instance_recommendations(**payload)
+            for item in response.get("instanceRecommendations", []):
+                options = item.get("recommendationOptions", [])
+                if not options:
+                    continue
+
+                best = options[0]
+                savings_obj = best.get("savingsOpportunity", {})
+                savings_value = float((savings_obj.get("estimatedMonthlySavings") or {}).get("value", 0) or 0)
+                currency = (savings_obj.get("estimatedMonthlySavings") or {}).get("currency", "USD")
+
+                recommendations.append(
+                    {
+                        "account_id": item.get("accountId"),
+                        "instance_arn": item.get("instanceArn"),
+                        "current_type": item.get("currentInstanceType"),
+                        "recommended_type": best.get("instanceType"),
+                        "estimated_monthly_savings": round(savings_value, 2),
+                        "currency": currency,
+                    }
+                )
+
+            next_token = response.get("nextToken")
+            if not next_token:
+                break
+
+        recommendations.sort(key=lambda row: float(row.get("estimated_monthly_savings", 0.0)), reverse=True)
+        total_savings = round(sum(float(row.get("estimated_monthly_savings", 0.0)) for row in recommendations), 2)
+
+        return {
+            "available": True,
+            "recommendations": recommendations[:RIGHTSIZING_MAX_RESULTS],
+            "total_estimated_monthly_savings": total_savings,
+            "currency": recommendations[0]["currency"] if recommendations else "USD",
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "available": False,
+            "error": str(exc),
+            "recommendations": [],
+            "total_estimated_monthly_savings": 0.0,
+            "currency": "USD",
+        }
+
+
+def _compute_top_wastes(
+    by_service: List[Dict[str, Any]],
+    by_tags: Dict[str, List[Dict[str, Any]]],
+    savings_plans: Dict[str, Any],
+    reservations: Dict[str, Any],
+    rightsizing: Dict[str, Any],
+) -> List[Dict[str, Any]]:
     candidates: List[Dict[str, Any]] = []
 
     for row in by_service[:10]:
@@ -151,6 +303,7 @@ def _compute_top_wastes(by_service: List[Dict[str, Any]], by_tags: Dict[str, Lis
                 "group": row["group"],
                 "amount": row["amount"],
                 "unit": row["unit"],
+                "details": "High absolute service spend in lookback window",
             }
         )
 
@@ -163,11 +316,52 @@ def _compute_top_wastes(by_service: List[Dict[str, Any]], by_tags: Dict[str, Lis
                         "group": row["group"],
                         "amount": row["amount"],
                         "unit": row["unit"],
+                        "details": f"Costs without {tag_key} tag attribution",
                     }
                 )
 
+    if savings_plans.get("available"):
+        unused_commitment = float(savings_plans.get("unused_commitment", 0.0))
+        if unused_commitment > 0:
+            candidates.append(
+                {
+                    "category": "savings_plans_underutilized",
+                    "group": "SavingsPlans",
+                    "amount": round(unused_commitment, 2),
+                    "unit": "USD",
+                    "details": f"Utilization={savings_plans.get('utilization_percentage')}%",
+                }
+            )
+
+    if reservations.get("available"):
+        unused_amount = float(reservations.get("unused_amount", 0.0))
+        if unused_amount > 0:
+            candidates.append(
+                {
+                    "category": "ri_underutilized",
+                    "group": "ReservedInstances",
+                    "amount": round(unused_amount, 2),
+                    "unit": "USD",
+                    "details": f"Utilization={reservations.get('utilization_percentage')}%",
+                }
+            )
+
+    for row in rightsizing.get("recommendations", [])[:10]:
+        savings = float(row.get("estimated_monthly_savings", 0.0))
+        if savings <= 0:
+            continue
+        candidates.append(
+            {
+                "category": "rightsizing_opportunity",
+                "group": row.get("instance_arn", "instance"),
+                "amount": round(savings, 2),
+                "unit": row.get("currency", "USD"),
+                "details": f"{row.get('current_type')} -> {row.get('recommended_type')}",
+            }
+        )
+
     candidates.sort(key=lambda item: float(item["amount"]), reverse=True)
-    return candidates[:10]
+    return candidates[:20]
 
 
 def _store_report(report: Dict[str, Any], csv_files: Dict[str, str]) -> List[Dict[str, str]]:

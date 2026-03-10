@@ -41,6 +41,7 @@ Esta base entrega **P0 + P1 implementados** com padrao modular e pronto para exp
 |   |-- automation_sg_exposure_remediation/
 |   |-- automation_finops_report/
 |   |-- automation_drift_detection/
+|   |-- automation_approval_bridge/
 |-- stacks/
 |   |-- dev/
 |   |-- stage/
@@ -58,6 +59,7 @@ Esta base entrega **P0 + P1 implementados** com padrao modular e pronto para exp
 |   |-- p1_sg_exposure_remediation/
 |   |-- p1_finops_report/
 |   |-- p1_drift_detection/
+|   |-- p1_approval_bridge/
 |-- stepfunctions/
 |   |-- p0_ecs_rollback.asl.json
 |   |-- p0_backup_validation.asl.json
@@ -68,6 +70,10 @@ Esta base entrega **P0 + P1 implementados** com padrao modular e pronto para exp
 |       |-- diagnostics.yaml
 |       |-- cleanup_disk.yaml
 |       |-- service_restart.yaml
+|       |-- sg_remediation_approval.yaml.tmpl
+|-- drift/
+|   |-- baseline.initial.json
+|   |-- README.md
 |-- env/
 |   |-- dev/
 |   |-- stage/
@@ -145,18 +151,30 @@ Esta base entrega **P0 + P1 implementados** com padrao modular e pronto para exp
 - Deteccao de portas criticas abertas para `0.0.0.0/0` e `::/0`.
 - Workflow Step Functions com gate de aprovacao manual.
 - Remediacao opcional e controlada por flags de seguranca.
+- Runbook SSM Automation para aprovacao operacional com `approved=true`.
 
 ### 10) Relatorio FinOps automatizado
 - Custo por conta.
 - Custo por servico.
 - Custo por tags.
-- Top desperdicios por heuristica.
+- Top desperdicios por heuristicas avancadas:
+  - servicos com alto custo
+  - custos sem tag
+  - Savings Plans subutilizados
+  - Reserved Instances subutilizados
+  - oportunidades de rightsizing (Compute Optimizer)
 - Saida em JSON e CSV no S3.
 
 ### 11) Drift detection operacional
 - Verificacao de drift em Security Groups, ECS Services, Listeners, parametros SSM e tags.
 - Comparacao contra baseline em S3.
 - Relatorio estruturado com alerta SNS.
+- Upload opcional de baseline inicial via Terraform.
+
+### 12) Integracao de aprovacoes com ChatOps/ITSM
+- Topico SNS dedicado para requisicoes de aprovacao.
+- Bridge Lambda para encaminhar eventos de aprovacao para webhooks.
+- Suporte a canal ChatOps e ITSM simultaneamente.
 
 ## Requisitos
 - Terraform >= 1.6
@@ -243,10 +261,10 @@ pytest -q tests
 ```
 
 ## Proximos passos sugeridos
-1. Adicionar baseline inicial de drift em `s3://<bucket>/<baseline_object_key>`.
-2. Publicar runbook operacional de aprovacao para SG remediation (`approved=true`).
-3. Refinar heuristicas de desperdicio FinOps (reservas/savings plans/rightsizing).
-4. Integrar aprovacoes com canal ChatOps/ITSM.
+1. Popular `drift/baseline.initial.json` com recursos reais do ambiente.
+2. Habilitar `drift_detection_publish_initial_baseline=true` no primeiro apply.
+3. Configurar webhooks `approval_bridge_chatops_webhook_url` e/ou `approval_bridge_itsm_webhook_url`.
+4. Executar runbook SSM `${name_prefix}-sg-remediation-approval` para aprovacao operacional.
 
 ## Notas de design
 - Nao foram usados modulos comunitarios genericos para logica principal das automacoes.

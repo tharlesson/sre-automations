@@ -1,0 +1,41 @@
+schemaVersion: '0.3'
+description: 'Manual approval runbook to trigger SG exposure remediation with approved=true.'
+assumeRole: '{{ AutomationAssumeRole }}'
+parameters:
+  AutomationAssumeRole:
+    type: String
+    default: ''
+    description: '(Optional) IAM role ARN used by SSM Automation execution.'
+  StateMachineArn:
+    type: String
+    default: '${state_machine_arn}'
+    description: 'Step Functions ARN for SG remediation workflow.'
+  DryRun:
+    type: String
+    default: 'true'
+    allowedValues:
+      - 'true'
+      - 'false'
+  RequireManualApproval:
+    type: String
+    default: 'true'
+    allowedValues:
+      - 'true'
+      - 'false'
+  Reason:
+    type: String
+    default: 'Approved via SSM Automation runbook'
+mainSteps:
+  - name: StartRemediationExecution
+    action: aws:executeAwsApi
+    inputs:
+      Service: states
+      Api: StartExecution
+      StateMachineArn: '{{ StateMachineArn }}'
+      Input: '{"approved":true,"allow_auto_remediation":true,"require_manual_approval":{{ RequireManualApproval }},"dry_run":{{ DryRun }},"initiated":"ssm-automation","reason":"{{ Reason }}"}'
+    outputs:
+      - Name: ExecutionArn
+        Selector: $.executionArn
+        Type: String
+outputs:
+  - StartRemediationExecution.ExecutionArn

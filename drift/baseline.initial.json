@@ -1,0 +1,52 @@
+{
+  "security_groups": [
+    {
+      "id": "sg-xxxxxxxx",
+      "allowed_ingress": [
+        {
+          "IpProtocol": "tcp",
+          "FromPort": 443,
+          "ToPort": 443,
+          "IpRanges": [
+            {
+              "CidrIp": "10.0.0.0/16"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "ecs_services": [
+    {
+      "cluster": "arn:aws:ecs:us-east-1:111122223333:cluster/example",
+      "service": "example-service",
+      "task_definition": "arn:aws:ecs:us-east-1:111122223333:task-definition/example:42",
+      "desired_count": 2
+    }
+  ],
+  "listeners": [
+    {
+      "arn": "arn:aws:elasticloadbalancing:us-east-1:111122223333:listener/app/example/abc123/def456",
+      "protocol": "HTTPS",
+      "port": 443
+    }
+  ],
+  "ssm_parameters": [
+    {
+      "name": "/example/app/max_connections",
+      "value": "100"
+    }
+  ],
+  "resource_tags": [
+    {
+      "arn": "arn:aws:ecs:us-east-1:111122223333:service/example-cluster/example-service",
+      "tags": {
+        "Environment": "dev",
+        "Application": "sre-platform",
+        "Owner": "platform-team",
+        "CostCenter": "cc-1234",
+        "ManagedBy": "Terraform"
+      }
+    }
+  ]
+}
