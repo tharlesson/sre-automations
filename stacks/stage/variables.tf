@@ -76,6 +76,74 @@ variable "enable_ssm_documents" {
   default     = true
 }
 
+variable "enable_ssm_runbooks_automation" {
+  description = "Enable P1 SSM patching/runbooks automation."
+  type        = bool
+  default     = true
+}
+
+variable "ssm_patching_schedule_expression" {
+  description = "Schedule expression for SSM patching window."
+  type        = string
+  default     = "cron(0 2 ? * SUN *)"
+}
+
+variable "ssm_runbook_schedule_expression" {
+  description = "Schedule expression for SSM operational runbook window."
+  type        = string
+  default     = "cron(0 3 ? * MON-FRI *)"
+}
+
+variable "ssm_runbook_target_tag_selector" {
+  description = "Tag selector used by SSM runbooks automation."
+  type        = map(string)
+  default = {
+    Schedule = "office-hours"
+  }
+}
+
+variable "ssm_runbook_patch_operation" {
+  description = "Patching operation mode (Scan or Install)."
+  type        = string
+  default     = "Scan"
+}
+
+variable "ssm_runbook_parameters" {
+  description = "Parameters passed to the scheduled operational runbook."
+  type        = map(list(string))
+  default     = {}
+}
+
+variable "ssm_runbook_require_manual_approval" {
+  description = "Require manual approval before dispatching SSM commands."
+  type        = bool
+  default     = false
+}
+
+variable "ssm_runbook_dry_run" {
+  description = "Run SSM runbooks automation in dry-run mode."
+  type        = bool
+  default     = true
+}
+
+variable "ssm_patching_document_name" {
+  description = "Optional patching document override."
+  type        = string
+  default     = null
+}
+
+variable "ssm_operational_document_name" {
+  description = "Optional operational runbook document override."
+  type        = string
+  default     = null
+}
+
+variable "ssm_runbook_approval_sns_topic_arn" {
+  description = "Optional SNS topic for manual approval requests."
+  type        = string
+  default     = null
+}
+
 variable "automation_alert_email_endpoints" {
   description = "Optional list of email endpoints subscribed to SNS automation alerts topic."
   type        = list(string)
@@ -298,6 +366,126 @@ variable "backup_validation_snapshot_max_age_days" {
   description = "Max accepted age (days) for latest snapshot."
   type        = number
   default     = 7
+}
+
+variable "enable_sg_exposure_remediation" {
+  description = "Enable P1 security group exposure remediation automation."
+  type        = bool
+  default     = true
+}
+
+variable "sg_remediation_schedule_expression" {
+  description = "Schedule expression for SG exposure remediation workflow."
+  type        = string
+  default     = "cron(0 9 * * ? *)"
+}
+
+variable "sg_remediation_critical_ports" {
+  description = "Critical ports considered exposed when open to the internet."
+  type        = list(number)
+  default     = [22, 3389, 3306, 5432]
+}
+
+variable "sg_remediation_excluded_security_group_ids" {
+  description = "Security groups excluded from SG remediation checks."
+  type        = list(string)
+  default     = []
+}
+
+variable "sg_remediation_allow_auto_remediation" {
+  description = "Allow SG workflow to revoke risky ingress rules."
+  type        = bool
+  default     = false
+}
+
+variable "sg_remediation_require_manual_approval" {
+  description = "Require approved=true execution input before SG remediation."
+  type        = bool
+  default     = true
+}
+
+variable "sg_remediation_dry_run" {
+  description = "Run SG remediation workflow in dry-run mode."
+  type        = bool
+  default     = true
+}
+
+variable "enable_finops_report" {
+  description = "Enable P1 FinOps reporting automation."
+  type        = bool
+  default     = true
+}
+
+variable "finops_report_schedule_expression" {
+  description = "Schedule expression for FinOps report generation."
+  type        = string
+  default     = "cron(0 10 ? * MON *)"
+}
+
+variable "finops_report_bucket_name" {
+  description = "Optional existing S3 bucket for FinOps reports."
+  type        = string
+  default     = null
+}
+
+variable "finops_report_prefix" {
+  description = "Prefix used in S3 for FinOps report objects."
+  type        = string
+  default     = "finops-reports"
+}
+
+variable "finops_report_lookback_days" {
+  description = "Lookback period used to aggregate FinOps costs."
+  type        = number
+  default     = 30
+}
+
+variable "finops_report_group_by_tag_keys" {
+  description = "Tag keys used in FinOps grouped views."
+  type        = list(string)
+  default     = ["Environment", "Application", "CostCenter"]
+}
+
+variable "finops_report_dry_run" {
+  description = "Generate FinOps report without persisting in S3."
+  type        = bool
+  default     = false
+}
+
+variable "enable_drift_detection" {
+  description = "Enable P1 operational drift detection automation."
+  type        = bool
+  default     = true
+}
+
+variable "drift_detection_schedule_expression" {
+  description = "Schedule expression for drift detection."
+  type        = string
+  default     = "cron(0 11 * * ? *)"
+}
+
+variable "drift_detection_storage_bucket_name" {
+  description = "Optional existing S3 bucket for baseline and drift reports."
+  type        = string
+  default     = null
+}
+
+variable "drift_detection_baseline_object_key" {
+  description = "S3 key of baseline JSON used by drift detection."
+  type        = string
+  default     = "drift/baseline.json"
+}
+
+variable "drift_detection_report_prefix" {
+  description = "S3 prefix used to store drift reports."
+  type        = string
+  default     = "drift-reports"
+}
+
+variable "drift_detection_dry_run" {
+  description = "Run drift detection without persisting report in S3."
+  type        = bool
+  default     = false
 }
 
 variable "enable_observability_alarms" {

@@ -2,7 +2,7 @@
 
 Plataforma de automacoes SRE para AWS, com foco em reducao de toil, governanca, incident response, operacao segura e controle de custos.
 
-Esta base entrega **P0 implementado** e deixa a estrutura pronta para expansao de **P1**.
+Esta base entrega **P0 + P1 implementados** com padrao modular e pronto para expansao adicional.
 
 ## Objetivos atendidos
 - Terraform `>= 1.6`, modular e reutilizavel.
@@ -37,6 +37,10 @@ Esta base entrega **P0 implementado** e deixa a estrutura pronta para expansao d
 |   |-- automation_incident_evidence/
 |   |-- automation_ecs_rollback/
 |   |-- automation_backup_validation/
+|   |-- automation_ssm_runbooks/
+|   |-- automation_sg_exposure_remediation/
+|   |-- automation_finops_report/
+|   |-- automation_drift_detection/
 |-- stacks/
 |   |-- dev/
 |   |-- stage/
@@ -50,9 +54,14 @@ Esta base entrega **P0 implementado** e deixa a estrutura pronta para expansao d
 |   |-- p0_incident_evidence/
 |   |-- p0_ecs_rollback/
 |   |-- p0_backup_validation/
+|   |-- p1_ssm_runbooks/
+|   |-- p1_sg_exposure_remediation/
+|   |-- p1_finops_report/
+|   |-- p1_drift_detection/
 |-- stepfunctions/
 |   |-- p0_ecs_rollback.asl.json
 |   |-- p0_backup_validation.asl.json
+|   |-- p1_sg_exposure_remediation.asl.json
 |-- ssm/
 |   |-- documents/
 |       |-- patching.yaml
@@ -123,6 +132,31 @@ Esta base entrega **P0 implementado** e deixa a estrutura pronta para expansao d
 - Smoke test.
 - Cleanup do recurso temporario.
 - Evidencia em S3 + notificacao SNS.
+
+## Automacoes P1 entregues
+
+### 8) Patching e runbooks operacionais com SSM
+- Janela de patching e janela de runbook operacional com schedules independentes.
+- Aprovacao manual opcional antes de executar `SendCommand`.
+- Suporte a selecao de targets por tag.
+- Reuso dos documentos SSM versionados no repositorio.
+
+### 9) Remediacao de Security Groups expostos
+- Deteccao de portas criticas abertas para `0.0.0.0/0` e `::/0`.
+- Workflow Step Functions com gate de aprovacao manual.
+- Remediacao opcional e controlada por flags de seguranca.
+
+### 10) Relatorio FinOps automatizado
+- Custo por conta.
+- Custo por servico.
+- Custo por tags.
+- Top desperdicios por heuristica.
+- Saida em JSON e CSV no S3.
+
+### 11) Drift detection operacional
+- Verificacao de drift em Security Groups, ECS Services, Listeners, parametros SSM e tags.
+- Comparacao contra baseline em S3.
+- Relatorio estruturado com alerta SNS.
 
 ## Requisitos
 - Terraform >= 1.6
@@ -201,19 +235,18 @@ Arquivo exemplo: `.github/workflows/terraform-ci.yml.example`
 - `terraform plan` por stack
 
 ## Testes
-Testes minimos em `tests/lambdas` para validar comportamento base dos handlers P0.
+Testes minimos em `tests/lambdas` para validar comportamento base dos handlers P0/P1.
 
 ```bash
 pip install -r requirements-dev.txt
 pytest -q tests
 ```
 
-## Plano de expansao (P1)
-A base ja esta preparada para adicionar os modulos abaixo mantendo o mesmo padrao de interface:
-1. Patching e runbooks operacionais SSM com janelas e approvals.
-2. Remediacao de Security Groups expostos com aprovacao manual.
-3. Relatorio FinOps automatizado (JSON/CSV em S3).
-4. Drift detection operacional para recursos criticos.
+## Proximos passos sugeridos
+1. Adicionar baseline inicial de drift em `s3://<bucket>/<baseline_object_key>`.
+2. Publicar runbook operacional de aprovacao para SG remediation (`approved=true`).
+3. Refinar heuristicas de desperdicio FinOps (reservas/savings plans/rightsizing).
+4. Integrar aprovacoes com canal ChatOps/ITSM.
 
 ## Notas de design
 - Nao foram usados modulos comunitarios genericos para logica principal das automacoes.
