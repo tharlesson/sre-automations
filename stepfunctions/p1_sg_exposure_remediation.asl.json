@@ -1,0 +1,166 @@
+{
+  "Comment": "Security Group exposure detection and remediation with manual approval gate",
+  "StartAt": "DetectExposedSecurityGroups",
+  "States": {
+    "DetectExposedSecurityGroups": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${sg_lambda_arn}",
+        "Payload": {
+          "action": "detect"
+        }
+      },
+      "ResultPath": "$.detect",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 2,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.error",
+          "Next": "NotifyFailure"
+        }
+      ],
+      "Next": "HasFindings"
+    },
+    "HasFindings": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.detect.Payload.findings_count",
+          "NumericGreaterThan": 0,
+          "Next": "AllowAutoRemediation"
+        }
+      ],
+      "Default": "NotifyNoFindings"
+    },
+    "AllowAutoRemediation": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.allow_auto_remediation",
+          "BooleanEquals": true,
+          "Next": "ApprovalGate"
+        }
+      ],
+      "Default": "NotifyDetectedOnly"
+    },
+    "ApprovalGate": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.require_manual_approval",
+          "BooleanEquals": false,
+          "Next": "RemediateExposedSecurityGroups"
+        },
+        {
+          "And": [
+            {
+              "Variable": "$.require_manual_approval",
+              "BooleanEquals": true
+            },
+            {
+              "Variable": "$.approved",
+              "BooleanEquals": true
+            }
+          ],
+          "Next": "RemediateExposedSecurityGroups"
+        }
+      ],
+      "Default": "NotifyApprovalRequired"
+    },
+    "RemediateExposedSecurityGroups": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${sg_lambda_arn}",
+        "Payload": {
+          "action": "remediate",
+          "findings.$": "$.detect.Payload.findings",
+          "dry_run.$": "$.dry_run"
+        }
+      },
+      "ResultPath": "$.remediation",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.error",
+          "Next": "NotifyFailure"
+        }
+      ],
+      "Next": "NotifyRemediation"
+    },
+    "NotifyNoFindings": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${sns_topic_arn}",
+        "Subject": "[SRE][SGRemediation] Nenhum achado",
+        "Message": "Nenhuma exposicao critica em Security Groups foi detectada."
+      },
+      "Next": "WorkflowCompleted"
+    },
+    "NotifyDetectedOnly": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${sns_topic_arn}",
+        "Subject": "[SRE][SGRemediation] Achados detectados",
+        "Message.$": "States.JsonToString($.detect.Payload)"
+      },
+      "Next": "WorkflowCompleted"
+    },
+    "NotifyApprovalRequired": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${sns_topic_arn}",
+        "Subject": "[SRE][SGRemediation] Aprovacao manual requerida",
+        "Message": "Executar manualmente com approved=true para aplicar remediacao."
+      },
+      "Next": "WorkflowCompleted"
+    },
+    "NotifyRemediation": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${sns_topic_arn}",
+        "Subject": "[SRE][SGRemediation] Remediacao executada",
+        "Message.$": "States.JsonToString($.remediation.Payload)"
+      },
+      "Next": "WorkflowCompleted"
+    },
+    "NotifyFailure": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${sns_topic_arn}",
+        "Subject": "[SRE][SGRemediation] Falha",
+        "Message.$": "States.JsonToString($)"
+      },
+      "Next": "WorkflowFailed"
+    },
+    "WorkflowCompleted": {
+      "Type": "Succeed"
+    },
+    "WorkflowFailed": {
+      "Type": "Fail",
+      "Error": "SecurityGroupRemediationFailed",
+      "Cause": "Security group remediation workflow failed"
+    }
+  }
+}

@@ -64,6 +64,33 @@ resource "aws_ssm_document" "service_restart" {
   tags            = module.common.tags
 }
 
+module "ssm_runbooks" {
+  count  = var.enable_ssm_runbooks_automation ? 1 : 0
+  source = "../../modules/automation_ssm_runbooks"
+
+  name_prefix                  = module.common.name_prefix
+  lambda_source_dir            = "${path.root}/../../lambdas/p1_ssm_runbooks"
+  enabled                      = true
+  enable_patching_schedule     = true
+  enable_runbook_schedule      = true
+  patching_schedule_expression = var.ssm_patching_schedule_expression
+  runbook_schedule_expression  = var.ssm_runbook_schedule_expression
+  schedule_timezone            = var.schedule_timezone
+  patching_document_name       = coalesce(var.ssm_patching_document_name, try(aws_ssm_document.patching[0].name, "AWS-RunPatchBaseline"))
+  runbook_document_name        = coalesce(var.ssm_operational_document_name, try(aws_ssm_document.diagnostics[0].name, "AWS-RunShellScript"))
+  target_tag_selector          = var.ssm_runbook_target_tag_selector
+  patch_operation              = var.ssm_runbook_patch_operation
+  runbook_parameters           = var.ssm_runbook_parameters
+  require_manual_approval      = var.ssm_runbook_require_manual_approval
+  dry_run                      = var.ssm_runbook_dry_run
+  sns_topic_arn                = aws_sns_topic.automation_alerts.arn
+  approval_sns_topic_arn       = var.ssm_runbook_approval_sns_topic_arn
+  lambda_timeout               = 300
+  lambda_memory_size           = 256
+  log_retention_days           = var.log_retention_days
+  tags                         = module.common.tags
+}
+
 module "scheduler" {
   count  = var.enable_scheduler ? 1 : 0
   source = "../../modules/automation_scheduler"
@@ -199,20 +226,88 @@ module "backup_validation" {
   tags                         = module.common.tags
 }
 
+module "sg_exposure_remediation" {
+  count  = var.enable_sg_exposure_remediation ? 1 : 0
+  source = "../../modules/automation_sg_exposure_remediation"
+
+  name_prefix                  = module.common.name_prefix
+  lambda_source_dir            = "${path.root}/../../lambdas/p1_sg_exposure_remediation"
+  stepfunction_definition_path = "${path.root}/../../stepfunctions/p1_sg_exposure_remediation.asl.json"
+  enabled                      = true
+  schedule_expression          = var.sg_remediation_schedule_expression
+  schedule_timezone            = var.schedule_timezone
+  critical_ports               = var.sg_remediation_critical_ports
+  exclude_security_group_ids   = var.sg_remediation_excluded_security_group_ids
+  allow_auto_remediation       = var.sg_remediation_allow_auto_remediation
+  require_manual_approval      = var.sg_remediation_require_manual_approval
+  dry_run                      = var.sg_remediation_dry_run
+  sns_topic_arn                = aws_sns_topic.automation_alerts.arn
+  lambda_timeout               = 300
+  lambda_memory_size           = 256
+  log_retention_days           = var.log_retention_days
+  tags                         = module.common.tags
+}
+
+module "finops_report" {
+  count  = var.enable_finops_report ? 1 : 0
+  source = "../../modules/automation_finops_report"
+
+  name_prefix         = module.common.name_prefix
+  lambda_source_dir   = "${path.root}/../../lambdas/p1_finops_report"
+  enabled             = true
+  schedule_expression = var.finops_report_schedule_expression
+  schedule_timezone   = var.schedule_timezone
+  report_bucket_name  = var.finops_report_bucket_name
+  report_prefix       = var.finops_report_prefix
+  lookback_days       = var.finops_report_lookback_days
+  group_by_tag_keys   = var.finops_report_group_by_tag_keys
+  sns_topic_arn       = aws_sns_topic.automation_alerts.arn
+  dry_run             = var.finops_report_dry_run
+  lambda_timeout      = 900
+  lambda_memory_size  = 512
+  log_retention_days  = var.log_retention_days
+  tags                = module.common.tags
+}
+
+module "drift_detection" {
+  count  = var.enable_drift_detection ? 1 : 0
+  source = "../../modules/automation_drift_detection"
+
+  name_prefix         = module.common.name_prefix
+  lambda_source_dir   = "${path.root}/../../lambdas/p1_drift_detection"
+  enabled             = true
+  schedule_expression = var.drift_detection_schedule_expression
+  schedule_timezone   = var.schedule_timezone
+  storage_bucket_name = var.drift_detection_storage_bucket_name
+  baseline_object_key = var.drift_detection_baseline_object_key
+  report_prefix       = var.drift_detection_report_prefix
+  sns_topic_arn       = aws_sns_topic.automation_alerts.arn
+  dry_run             = var.drift_detection_dry_run
+  lambda_timeout      = 900
+  lambda_memory_size  = 512
+  log_retention_days  = var.log_retention_days
+  tags                = module.common.tags
+}
+
 locals {
   lambda_function_names = concat(
+    var.enable_ssm_runbooks_automation ? [module.ssm_runbooks[0].lambda_function_name] : [],
     var.enable_scheduler ? [module.scheduler[0].lambda_function_name] : [],
     var.enable_tag_auditor ? [module.tag_auditor[0].lambda_function_name] : [],
     var.enable_cert_secret_monitor ? [module.cert_secret_monitor[0].lambda_function_name] : [],
     var.enable_orphan_cleanup ? [module.orphan_cleanup[0].lambda_function_name] : [],
     var.enable_incident_evidence ? [module.incident_evidence[0].lambda_function_name] : [],
     var.enable_ecs_rollback ? [module.ecs_rollback[0].lambda_function_name] : [],
-    var.enable_backup_validation ? [module.backup_validation[0].lambda_function_name] : []
+    var.enable_backup_validation ? [module.backup_validation[0].lambda_function_name] : [],
+    var.enable_sg_exposure_remediation ? [module.sg_exposure_remediation[0].lambda_function_name] : [],
+    var.enable_finops_report ? [module.finops_report[0].lambda_function_name] : [],
+    var.enable_drift_detection ? [module.drift_detection[0].lambda_function_name] : []
   )
 
   state_machine_arns = concat(
     var.enable_ecs_rollback ? [module.ecs_rollback[0].state_machine_arn] : [],
-    var.enable_backup_validation ? [module.backup_validation[0].state_machine_arn] : []
+    var.enable_backup_validation ? [module.backup_validation[0].state_machine_arn] : [],
+    var.enable_sg_exposure_remediation ? [module.sg_exposure_remediation[0].state_machine_arn] : []
   )
 }
 

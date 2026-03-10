@@ -13,6 +13,11 @@ output "scheduler_lambda_arn" {
   value       = try(module.scheduler[0].lambda_function_arn, null)
 }
 
+output "ssm_runbooks_lambda_arn" {
+  description = "SSM runbooks automation lambda ARN."
+  value       = try(module.ssm_runbooks[0].lambda_function_arn, null)
+}
+
 output "tag_auditor_lambda_arn" {
   description = "Tag auditor lambda ARN."
   value       = try(module.tag_auditor[0].lambda_function_arn, null)
@@ -41,6 +46,31 @@ output "ecs_rollback_state_machine_arn" {
 output "backup_validation_state_machine_arn" {
   description = "Backup validation workflow ARN."
   value       = try(module.backup_validation[0].state_machine_arn, null)
+}
+
+output "sg_exposure_remediation_state_machine_arn" {
+  description = "Security group exposure remediation workflow ARN."
+  value       = try(module.sg_exposure_remediation[0].state_machine_arn, null)
+}
+
+output "finops_report_lambda_arn" {
+  description = "FinOps report lambda ARN."
+  value       = try(module.finops_report[0].lambda_function_arn, null)
+}
+
+output "finops_report_bucket_name" {
+  description = "S3 bucket used for FinOps reports."
+  value       = try(module.finops_report[0].report_bucket_name, null)
+}
+
+output "drift_detection_lambda_arn" {
+  description = "Drift detection lambda ARN."
+  value       = try(module.drift_detection[0].lambda_function_arn, null)
+}
+
+output "drift_detection_bucket_name" {
+  description = "S3 bucket used by drift detection."
+  value       = try(module.drift_detection[0].storage_bucket_name, null)
 }
 
 output "observability_lambda_alarm_names" {
