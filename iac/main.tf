@@ -18,7 +18,7 @@ locals {
 }
 
 module "state_bucket" {
-  source = "git::https://github.com/tharlesson/terraform-modules.git//modules/s3?ref=a7c9740643efe5c38930f1b66b4e431593c20dea"
+  source = "../../terraform-modules/modules/s3"
 
   bucket_name                                  = local.effective_state_bucket_name
   access_log_bucket_name                       = coalesce(var.state_access_log_bucket_name, local.effective_state_bucket_name)

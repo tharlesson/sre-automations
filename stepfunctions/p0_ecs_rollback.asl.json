@@ -1,0 +1,195 @@
+{
+  "Comment": "ECS rollback workflow with retries, safe checks and notifications",
+  "StartAt": "DiscoverPreviousRevision",
+  "States": {
+    "DiscoverPreviousRevision": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${rollback_lambda_arn}",
+        "Payload": {
+          "action": "discover_previous",
+          "cluster.$": "$.cluster",
+          "service.$": "$.service"
+        }
+      },
+      "ResultPath": "$.discover",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.error",
+          "Next": "NotifyFailure"
+        }
+      ],
+      "Next": "RollbackPossible?"
+    },
+    "RollbackPossible?": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.discover.Payload.rollback_possible",
+          "BooleanEquals": true,
+          "Next": "ApplyRollback"
+        }
+      ],
+      "Default": "NotifyNoRollback"
+    },
+    "ApplyRollback": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${rollback_lambda_arn}",
+        "Payload": {
+          "action": "apply_rollback",
+          "cluster.$": "$.cluster",
+          "service.$": "$.service",
+          "target_task_definition.$": "$.discover.Payload.previous_task_definition"
+        }
+      },
+      "ResultPath": "$.apply",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.error",
+          "Next": "NotifyFailure"
+        }
+      ],
+      "Next": "WaitForStabilization"
+    },
+    "WaitForStabilization": {
+      "Type": "Wait",
+      "Seconds": 30,
+      "Next": "CheckStability"
+    },
+    "CheckStability": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${rollback_lambda_arn}",
+        "Payload": {
+          "action": "check_stability",
+          "cluster.$": "$.cluster",
+          "service.$": "$.service"
+        }
+      },
+      "ResultPath": "$.stability",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.TaskFailed"
+          ],
+          "IntervalSeconds": 30,
+          "MaxAttempts": 10,
+          "BackoffRate": 1.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.error",
+          "Next": "NotifyFailure"
+        }
+      ],
+      "Next": "ValidateHealth"
+    },
+    "ValidateHealth": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${rollback_lambda_arn}",
+        "Payload": {
+          "action": "validate_health",
+          "cluster.$": "$.cluster",
+          "service.$": "$.service"
+        }
+      },
+      "ResultPath": "$.health",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.error",
+          "Next": "NotifyFailure"
+        }
+      ],
+      "Next": "HealthCheckPassed?"
+    },
+    "HealthCheckPassed?": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.health.Payload.healthy",
+          "BooleanEquals": true,
+          "Next": "NotifySuccess"
+        }
+      ],
+      "Default": "NotifyFailure"
+    },
+    "NotifyNoRollback": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${sns_topic_arn}",
+        "Subject": "[SRE][ECSRollback] Nenhuma revisao estavel anterior",
+        "Message.$": "States.Format('Rollback ignorado para cluster={} service={}. Nao ha revisao anterior estavel.', $.cluster, $.service)"
+      },
+      "End": true
+    },
+    "NotifySuccess": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${sns_topic_arn}",
+        "Subject": "[SRE][ECSRollback] Sucesso",
+        "Message.$": "States.Format('Rollback concluido com sucesso para cluster={} service={}', $.cluster, $.service)"
+      },
+      "End": true
+    },
+    "NotifyFailure": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${sns_topic_arn}",
+        "Subject": "[SRE][ECSRollback] Falha",
+        "Message.$": "States.JsonToString($)"
+      },
+      "Next": "WorkflowFailed"
+    },
+    "WorkflowFailed": {
+      "Type": "Fail",
+      "Error": "RollbackFailed",
+      "Cause": "Rollback workflow failed"
+    }
+  }
+}
