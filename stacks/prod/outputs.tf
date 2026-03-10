@@ -8,6 +8,11 @@ output "automation_alerts_topic_arn" {
   value       = aws_sns_topic.automation_alerts.arn
 }
 
+output "approval_requests_topic_arn" {
+  description = "SNS topic ARN for approval requests."
+  value       = aws_sns_topic.approval_requests.arn
+}
+
 output "scheduler_lambda_arn" {
   description = "Environment scheduler lambda ARN."
   value       = try(module.scheduler[0].lambda_function_arn, null)
@@ -16,6 +21,11 @@ output "scheduler_lambda_arn" {
 output "ssm_runbooks_lambda_arn" {
   description = "SSM runbooks automation lambda ARN."
   value       = try(module.ssm_runbooks[0].lambda_function_arn, null)
+}
+
+output "approval_bridge_lambda_arn" {
+  description = "Approval bridge lambda ARN."
+  value       = try(module.approval_bridge[0].lambda_function_arn, null)
 }
 
 output "tag_auditor_lambda_arn" {
@@ -73,6 +83,11 @@ output "drift_detection_bucket_name" {
   value       = try(module.drift_detection[0].storage_bucket_name, null)
 }
 
+output "drift_detection_baseline_s3_uri" {
+  description = "S3 URI of configured drift baseline object."
+  value       = try(module.drift_detection[0].baseline_s3_uri, null)
+}
+
 output "observability_lambda_alarm_names" {
   description = "Lambda alarm names created for observability baseline."
   value       = module.observability.lambda_alarm_names
@@ -86,9 +101,10 @@ output "observability_sfn_alarm_names" {
 output "ssm_documents" {
   description = "Reusable SSM document names."
   value = {
-    patching        = try(aws_ssm_document.patching[0].name, null)
-    diagnostics     = try(aws_ssm_document.diagnostics[0].name, null)
-    cleanup_disk    = try(aws_ssm_document.cleanup_disk[0].name, null)
-    service_restart = try(aws_ssm_document.service_restart[0].name, null)
+    patching                = try(aws_ssm_document.patching[0].name, null)
+    diagnostics             = try(aws_ssm_document.diagnostics[0].name, null)
+    cleanup_disk            = try(aws_ssm_document.cleanup_disk[0].name, null)
+    service_restart         = try(aws_ssm_document.service_restart[0].name, null)
+    sg_remediation_approval = try(aws_ssm_document.sg_remediation_approval[0].name, null)
   }
 }

@@ -12,9 +12,15 @@ extra_tags = {
   Team = "SRE"
 }
 
-schedule_timezone                = "America/Sao_Paulo"
-log_retention_days               = 30
-automation_alert_email_endpoints = ["sre-stage@example.com"]
+schedule_timezone                              = "America/Sao_Paulo"
+log_retention_days                             = 30
+automation_alert_email_endpoints               = ["sre-stage@example.com"]
+approval_alert_email_endpoints                 = []
+enable_approval_bridge                         = true
+approval_bridge_chatops_webhook_url            = null
+approval_bridge_itsm_webhook_url               = null
+approval_bridge_forward_only_approval_messages = true
+approval_bridge_http_timeout_seconds           = 10
 
 enable_scheduler                    = true
 scheduler_dry_run                   = true
@@ -87,21 +93,28 @@ sg_remediation_excluded_security_group_ids = []
 sg_remediation_allow_auto_remediation      = false
 sg_remediation_require_manual_approval     = true
 sg_remediation_dry_run                     = true
+sg_remediation_approval_sns_topic_arn      = null
 
-enable_finops_report              = true
-finops_report_schedule_expression = "cron(0 10 ? * MON *)"
-finops_report_bucket_name         = null
-finops_report_prefix              = "finops-reports"
-finops_report_lookback_days       = 30
-finops_report_group_by_tag_keys   = ["Environment", "Application", "CostCenter"]
-finops_report_dry_run             = true
+enable_finops_report                  = true
+finops_report_schedule_expression     = "cron(0 10 ? * MON *)"
+finops_report_bucket_name             = null
+finops_report_prefix                  = "finops-reports"
+finops_report_lookback_days           = 30
+finops_report_group_by_tag_keys       = ["Environment", "Application", "CostCenter"]
+finops_include_savings_plans_analysis = true
+finops_include_reservation_analysis   = true
+finops_include_rightsizing_analysis   = true
+finops_rightsizing_max_results        = 50
+finops_report_dry_run                 = true
 
-enable_drift_detection              = true
-drift_detection_schedule_expression = "cron(0 11 * * ? *)"
-drift_detection_storage_bucket_name = null
-drift_detection_baseline_object_key = "drift/baseline.json"
-drift_detection_report_prefix       = "drift-reports"
-drift_detection_dry_run             = true
+enable_drift_detection                     = true
+drift_detection_schedule_expression        = "cron(0 11 * * ? *)"
+drift_detection_storage_bucket_name        = null
+drift_detection_baseline_object_key        = "drift/baseline.json"
+drift_detection_publish_initial_baseline   = false
+drift_detection_initial_baseline_file_path = null
+drift_detection_report_prefix              = "drift-reports"
+drift_detection_dry_run                    = true
 
 enable_observability_alarms = true
 enable_ssm_documents        = true

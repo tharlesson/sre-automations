@@ -4,5 +4,5 @@ Automacao P1 para relatorio FinOps automatizado:
 - custo por conta
 - custo por servico
 - custo por tags
-- top desperdicios (heuristica por maiores custos/untagged)
+- top desperdicios (servicos caros, untagged, SP/RI subutilizados e rightsizing)
 - saida em JSON e CSV no S3

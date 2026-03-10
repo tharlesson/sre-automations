@@ -3,6 +3,16 @@ locals {
   create_storage       = var.storage_bucket_name == null
   effective_bucket     = coalesce(var.storage_bucket_name, try(aws_s3_bucket.storage[0].bucket, null))
   effective_bucket_arn = var.storage_bucket_name == null ? try(aws_s3_bucket.storage[0].arn, null) : "arn:aws:s3:::${var.storage_bucket_name}"
+  baseline_seed_content = coalesce(
+    var.initial_baseline_content,
+    jsonencode({
+      security_groups = []
+      ecs_services    = []
+      listeners       = []
+      ssm_parameters  = []
+      resource_tags   = []
+    })
+  )
 
   lambda_policy_statements = concat(
     [
@@ -110,6 +120,16 @@ resource "aws_s3_bucket_versioning" "storage" {
   versioning_configuration {
     status = "Enabled"
   }
+}
+
+resource "aws_s3_object" "initial_baseline" {
+  count = var.publish_initial_baseline ? 1 : 0
+
+  bucket       = local.effective_bucket
+  key          = var.baseline_object_key
+  content      = local.baseline_seed_content
+  content_type = "application/json"
+  tags         = var.tags
 }
 
 module "lambda" {

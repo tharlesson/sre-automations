@@ -50,3 +50,10 @@ def test_ssm_build_parameters_for_patching():
 
     params = mod._build_parameters("patching")
     assert "Operation" in params
+
+
+def test_approval_bridge_keyword_detection():
+    mod = load_module("lambdas/p1_approval_bridge/handler.py", "p1_approval_bridge_handler")
+
+    assert mod._is_approval_message("[SRE][SGRemediation] Aprovacao manual requerida", "pending_approval")
+    assert not mod._is_approval_message("General notification", "all good")

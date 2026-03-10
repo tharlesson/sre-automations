@@ -150,6 +150,42 @@ variable "automation_alert_email_endpoints" {
   default     = []
 }
 
+variable "approval_alert_email_endpoints" {
+  description = "Optional list of email endpoints subscribed to SNS approval requests topic."
+  type        = list(string)
+  default     = []
+}
+
+variable "enable_approval_bridge" {
+  description = "Enable webhook bridge for approval requests (ChatOps/ITSM)."
+  type        = bool
+  default     = true
+}
+
+variable "approval_bridge_chatops_webhook_url" {
+  description = "Optional ChatOps webhook URL for approval notifications."
+  type        = string
+  default     = null
+}
+
+variable "approval_bridge_itsm_webhook_url" {
+  description = "Optional ITSM webhook URL for approval notifications."
+  type        = string
+  default     = null
+}
+
+variable "approval_bridge_forward_only_approval_messages" {
+  description = "Forward only approval-like messages to webhooks."
+  type        = bool
+  default     = true
+}
+
+variable "approval_bridge_http_timeout_seconds" {
+  description = "HTTP timeout for approval bridge webhook posts."
+  type        = number
+  default     = 10
+}
+
 variable "enable_scheduler" {
   description = "Enable non-prod environment scheduler automation."
   type        = bool
@@ -410,6 +446,12 @@ variable "sg_remediation_dry_run" {
   default     = true
 }
 
+variable "sg_remediation_approval_sns_topic_arn" {
+  description = "Optional SNS topic ARN dedicated to SG remediation approval requests."
+  type        = string
+  default     = null
+}
+
 variable "enable_finops_report" {
   description = "Enable P1 FinOps reporting automation."
   type        = bool
@@ -446,6 +488,30 @@ variable "finops_report_group_by_tag_keys" {
   default     = ["Environment", "Application", "CostCenter"]
 }
 
+variable "finops_include_savings_plans_analysis" {
+  description = "Include Savings Plans utilization analysis in FinOps report."
+  type        = bool
+  default     = true
+}
+
+variable "finops_include_reservation_analysis" {
+  description = "Include RI utilization analysis in FinOps report."
+  type        = bool
+  default     = true
+}
+
+variable "finops_include_rightsizing_analysis" {
+  description = "Include Compute Optimizer rightsizing recommendations in FinOps report."
+  type        = bool
+  default     = true
+}
+
+variable "finops_rightsizing_max_results" {
+  description = "Maximum rightsizing recommendations in FinOps report."
+  type        = number
+  default     = 50
+}
+
 variable "finops_report_dry_run" {
   description = "Generate FinOps report without persisting in S3."
   type        = bool
@@ -474,6 +540,18 @@ variable "drift_detection_baseline_object_key" {
   description = "S3 key of baseline JSON used by drift detection."
   type        = string
   default     = "drift/baseline.json"
+}
+
+variable "drift_detection_publish_initial_baseline" {
+  description = "Publish initial baseline object content to S3 baseline key."
+  type        = bool
+  default     = false
+}
+
+variable "drift_detection_initial_baseline_file_path" {
+  description = "Optional local file path containing baseline JSON for initial seed."
+  type        = string
+  default     = null
 }
 
 variable "drift_detection_report_prefix" {

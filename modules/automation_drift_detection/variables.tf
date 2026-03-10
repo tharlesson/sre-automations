@@ -38,6 +38,18 @@ variable "baseline_object_key" {
   default     = "drift/baseline.json"
 }
 
+variable "publish_initial_baseline" {
+  description = "Publish initial baseline object content to baseline_object_key."
+  type        = bool
+  default     = false
+}
+
+variable "initial_baseline_content" {
+  description = "Optional JSON content used when publish_initial_baseline=true."
+  type        = string
+  default     = null
+}
+
 variable "report_prefix" {
   description = "S3 prefix used to store drift reports."
   type        = string
