@@ -1,5 +1,7 @@
 .terraform/
+**/.terraform/
 .terraform.lock.hcl
+**/.terraform.lock.hcl
 *.tfstate
 *.tfstate.*
 crash.log
@@ -8,4 +10,7 @@ override.tf.json
 *_override.tf
 *_override.tf.json
 
-iac/environment_scheduler_lambda.zip
+modules/lambda_automation/*.zip
+*.pyc
+__pycache__/
+.pytest_cache/

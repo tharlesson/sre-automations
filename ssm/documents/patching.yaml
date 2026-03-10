@@ -1,0 +1,30 @@
+schemaVersion: '2.2'
+description: 'Run patch baseline scan/install on Linux and Windows instances.'
+parameters:
+  Operation:
+    type: String
+    default: Scan
+    allowedValues:
+      - Scan
+      - Install
+mainSteps:
+  - name: PatchLinux
+    action: aws:runShellScript
+    precondition:
+      StringEquals:
+        - platformType
+        - Linux
+    inputs:
+      runCommand:
+        - "sudo yum -y update || sudo apt-get update -y"
+  - name: PatchWindows
+    action: aws:runPowerShellScript
+    precondition:
+      StringEquals:
+        - platformType
+        - Windows
+    inputs:
+      runCommand:
+        - "Install-Module -Name PSWindowsUpdate -Force -Scope CurrentUser"
+        - "Import-Module PSWindowsUpdate"
+        - "Get-WindowsUpdate -Install -AcceptAll -IgnoreReboot"

@@ -1,0 +1,30 @@
+schemaVersion: '2.2'
+description: 'Cleanup disk safely with configurable path and retention.'
+parameters:
+  TargetPath:
+    type: String
+    default: /tmp
+  RetentionDays:
+    type: String
+    default: '7'
+mainSteps:
+  - name: CleanupLinux
+    action: aws:runShellScript
+    precondition:
+      StringEquals:
+        - platformType
+        - Linux
+    inputs:
+      runCommand:
+        - "find {{ TargetPath }} -type f -mtime +{{ RetentionDays }} -print -delete"
+  - name: CleanupWindows
+    action: aws:runPowerShellScript
+    precondition:
+      StringEquals:
+        - platformType
+        - Windows
+    inputs:
+      runCommand:
+        - "$path = '{{ TargetPath }}'"
+        - "$days = [int]'{{ RetentionDays }}'"
+        - "Get-ChildItem -Path $path -Recurse -File | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-$days) } | Remove-Item -Force"

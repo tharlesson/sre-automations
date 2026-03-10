@@ -1,0 +1,1 @@
+Stacks by environment. Each stack composes reusable modules from `../../modules`.

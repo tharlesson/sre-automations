@@ -1,0 +1,204 @@
+{
+  "Comment": "Backup and restore validation workflow with evidence generation",
+  "StartAt": "DiscoverSnapshot",
+  "States": {
+    "DiscoverSnapshot": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${worker_lambda_arn}",
+        "Payload": {
+          "action": "discover"
+        }
+      },
+      "ResultPath": "$.discover",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.error",
+          "Next": "PersistEvidenceFailure"
+        }
+      ],
+      "Next": "SnapshotCompliant?"
+    },
+    "SnapshotCompliant?": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.discover.Payload.snapshot_compliant",
+          "BooleanEquals": true,
+          "Next": "RestoreTemporaryResource"
+        }
+      ],
+      "Default": "PersistEvidenceNonCompliant"
+    },
+    "RestoreTemporaryResource": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${worker_lambda_arn}",
+        "Payload": {
+          "action": "restore",
+          "snapshot_id.$": "$.discover.Payload.snapshot_id"
+        }
+      },
+      "ResultPath": "$.restore",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.error",
+          "Next": "PersistEvidenceFailure"
+        }
+      ],
+      "Next": "SmokeTest"
+    },
+    "SmokeTest": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${worker_lambda_arn}",
+        "Payload": {
+          "action": "smoke_test",
+          "temporary_volume_id.$": "$.restore.Payload.temporary_volume_id",
+          "simulated.$": "$.restore.Payload.simulated"
+        }
+      },
+      "ResultPath": "$.smoke",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.error",
+          "Next": "CleanupAfterFailure"
+        }
+      ],
+      "Next": "CleanupTemporaryResource"
+    },
+    "CleanupTemporaryResource": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${worker_lambda_arn}",
+        "Payload": {
+          "action": "cleanup",
+          "temporary_volume_id.$": "$.restore.Payload.temporary_volume_id",
+          "simulated.$": "$.restore.Payload.simulated"
+        }
+      },
+      "ResultPath": "$.cleanup",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.error",
+          "Next": "PersistEvidenceFailure"
+        }
+      ],
+      "Next": "PersistEvidenceSuccess"
+    },
+    "CleanupAfterFailure": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${worker_lambda_arn}",
+        "Payload": {
+          "action": "cleanup",
+          "temporary_volume_id.$": "$.restore.Payload.temporary_volume_id",
+          "simulated.$": "$.restore.Payload.simulated"
+        }
+      },
+      "ResultPath": "$.cleanup",
+      "Next": "PersistEvidenceFailure"
+    },
+    "PersistEvidenceSuccess": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${worker_lambda_arn}",
+        "Payload": {
+          "action": "persist_evidence",
+          "execution_id.$": "$$.Execution.Id",
+          "status": "success",
+          "details.$": "$"
+        }
+      },
+      "ResultPath": "$.evidence",
+      "Next": "NotifySuccess"
+    },
+    "PersistEvidenceNonCompliant": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${worker_lambda_arn}",
+        "Payload": {
+          "action": "persist_evidence",
+          "execution_id.$": "$$.Execution.Id",
+          "status": "failed",
+          "reason": "snapshot_retention_non_compliant",
+          "details.$": "$"
+        }
+      },
+      "ResultPath": "$.evidence",
+      "Next": "NotifyFailure"
+    },
+    "PersistEvidenceFailure": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${worker_lambda_arn}",
+        "Payload": {
+          "action": "persist_evidence",
+          "execution_id.$": "$$.Execution.Id",
+          "status": "failed",
+          "reason": "workflow_error",
+          "details.$": "$"
+        }
+      },
+      "ResultPath": "$.evidence",
+      "Next": "NotifyFailure"
+    },
+    "NotifySuccess": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${sns_topic_arn}",
+        "Subject": "[SRE][BackupValidation] Sucesso",
+        "Message.$": "States.Format('Validacao de backup concluida com sucesso. Evidence={}', $.evidence.Payload.evidence_s3_uri)"
+      },
+      "End": true
+    },
+    "NotifyFailure": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${sns_topic_arn}",
+        "Subject": "[SRE][BackupValidation] Falha",
+        "Message.$": "States.Format('Falha na validacao de backup. Evidence={}', $.evidence.Payload.evidence_s3_uri)"
+      },
+      "Next": "ValidationFailed"
+    },
+    "ValidationFailed": {
+      "Type": "Fail",
+      "Error": "BackupValidationFailed",
+      "Cause": "Backup validation workflow failed"
+    }
+  }
+}

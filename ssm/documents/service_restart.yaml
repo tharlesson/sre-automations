@@ -1,0 +1,24 @@
+schemaVersion: '2.2'
+description: 'Restart one or more services in a controlled way.'
+parameters:
+  ServiceNames:
+    type: StringList
+mainSteps:
+  - name: RestartLinuxServices
+    action: aws:runShellScript
+    precondition:
+      StringEquals:
+        - platformType
+        - Linux
+    inputs:
+      runCommand:
+        - "for svc in {{ ServiceNames }}; do sudo systemctl restart $svc; sudo systemctl status $svc --no-pager; done"
+  - name: RestartWindowsServices
+    action: aws:runPowerShellScript
+    precondition:
+      StringEquals:
+        - platformType
+        - Windows
+    inputs:
+      runCommand:
+        - "foreach ($svc in @('{{ ServiceNames }}')) { Restart-Service -Name $svc -Force; Get-Service -Name $svc }"
