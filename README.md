@@ -76,9 +76,9 @@ Esta base entrega **P0 + P1 implementados** com padrao modular e pronto para exp
 |   |-- README.md
 |   |-- generate_baseline_from_aws.py
 |-- scripts/
-|   |-- seed_drift_baseline.ps1
-|   |-- configure_approval_webhooks.ps1
-|   |-- run_sg_remediation_approval.ps1
+|   |-- seed_drift_baseline.sh
+|   |-- configure_approval_webhooks.sh
+|   |-- run_sg_remediation_approval.sh
 |-- env/
 |   |-- dev/
 |   |-- stage/
@@ -287,13 +287,13 @@ pytest -q tests
 
 ## Proximos passos sugeridos
 1. Gerar baseline real:
-   - `./scripts/seed_drift_baseline.ps1 -Environment dev -EnablePublishOnFirstApply`
+   - `./scripts/seed_drift_baseline.sh --environment dev --enable-publish-on-first-apply`
 2. Configurar webhooks de aprovacao:
-   - `./scripts/configure_approval_webhooks.ps1 -Environment dev -ChatOpsWebhookUrl "<url>" -ITSMWebhookUrl "<url>"`
+   - `./scripts/configure_approval_webhooks.sh --environment dev --chatops-webhook-url "<url>" --itsm-webhook-url "<url>"`
 3. Rodar primeiro apply (com baseline publish em `true`):
    - `terraform apply -var-file=../../env/dev/terraform.tfvars -var-file=../../env/dev/terraform.local.tfvars`
 4. Executar runbook SSM de aprovacao operacional:
-   - `./scripts/run_sg_remediation_approval.ps1 -Environment dev -Region us-east-1 -Project sreauto -Profile my-dev-profile -DryRun $true`
+   - `./scripts/run_sg_remediation_approval.sh --environment dev --region us-east-1 --project sreauto --profile my-dev-profile --dry-run true`
 5. Depois do primeiro apply, retornar:
    - `drift_detection_publish_initial_baseline = false` no `env/dev/terraform.tfvars`
 

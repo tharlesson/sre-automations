@@ -17,14 +17,3 @@ mainSteps:
     inputs:
       runCommand:
         - "find {{ TargetPath }} -type f -mtime +{{ RetentionDays }} -print -delete"
-  - name: CleanupWindows
-    action: aws:runPowerShellScript
-    precondition:
-      StringEquals:
-        - platformType
-        - Windows
-    inputs:
-      runCommand:
-        - "$path = '{{ TargetPath }}'"
-        - "$days = [int]'{{ RetentionDays }}'"
-        - "Get-ChildItem -Path $path -Recurse -File | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-$days) } | Remove-Item -Force"
