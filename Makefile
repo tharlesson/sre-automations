@@ -50,10 +50,10 @@ destroy:
 		terraform destroy $$VAR_ARGS
 
 seed-baseline:
-	powershell -ExecutionPolicy Bypass -File scripts/seed_drift_baseline.ps1 -Environment $(STACK) -EnablePublishOnFirstApply
+	bash scripts/seed_drift_baseline.sh --environment $(STACK) --enable-publish-on-first-apply
 
 configure-webhooks:
-	powershell -ExecutionPolicy Bypass -File scripts/configure_approval_webhooks.ps1 -Environment $(STACK) -ChatOpsWebhookUrl "$(CHATOPS_WEBHOOK)" -ITSMWebhookUrl "$(ITSM_WEBHOOK)"
+	bash scripts/configure_approval_webhooks.sh --environment $(STACK) --chatops-webhook-url "$(CHATOPS_WEBHOOK)" --itsm-webhook-url "$(ITSM_WEBHOOK)"
 
 run-sg-approval:
-	powershell -ExecutionPolicy Bypass -File scripts/run_sg_remediation_approval.ps1 -Environment $(STACK) -Region "$(REGION)" -Project "$(PROJECT)" -Profile "$(PROFILE)"
+	bash scripts/run_sg_remediation_approval.sh --environment $(STACK) --region "$(REGION)" --project "$(PROJECT)" --profile "$(PROFILE)"

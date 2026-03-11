@@ -6,8 +6,8 @@ Como gerar com recursos reais da AWS:
 2. (Opcional) incluir parametros SSM no baseline:
    - `--ssm-parameter-prefix /sreauto/dev/`
 
-Alternativa com helper PowerShell:
-- `./scripts/seed_drift_baseline.ps1 -Environment dev -EnablePublishOnFirstApply`
+Alternativa com helper shell:
+- `./scripts/seed_drift_baseline.sh --environment dev --enable-publish-on-first-apply`
 
 Publicacao no primeiro apply:
 1. No `env/<ambiente>/terraform.tfvars`:

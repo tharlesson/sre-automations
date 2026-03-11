@@ -1,5 +1,5 @@
 schemaVersion: '2.2'
-description: 'Run patch baseline scan/install on Linux and Windows instances.'
+description: 'Run patch baseline scan/install on Linux instances.'
 parameters:
   Operation:
     type: String
@@ -16,15 +16,6 @@ mainSteps:
         - Linux
     inputs:
       runCommand:
-        - "sudo yum -y update || sudo apt-get update -y"
-  - name: PatchWindows
-    action: aws:runPowerShellScript
-    precondition:
-      StringEquals:
-        - platformType
-        - Windows
-    inputs:
-      runCommand:
-        - "Install-Module -Name PSWindowsUpdate -Force -Scope CurrentUser"
-        - "Import-Module PSWindowsUpdate"
-        - "Get-WindowsUpdate -Install -AcceptAll -IgnoreReboot"
+        - "set -euo pipefail"
+        - "op='{{ Operation }}'"
+        - "if [ \"$op\" = \"Scan\" ]; then if command -v yum >/dev/null 2>&1; then yum check-update || true; elif command -v apt-get >/dev/null 2>&1; then apt-get -s upgrade || true; else echo 'No supported package manager found' >&2; exit 1; fi; else if command -v yum >/dev/null 2>&1; then yum -y update; elif command -v apt-get >/dev/null 2>&1; then apt-get update -y && apt-get -y upgrade; else echo 'No supported package manager found' >&2; exit 1; fi; fi"

@@ -51,7 +51,7 @@ Checklist operacional para validar o ambiente apos `terraform apply`.
 
 ## 7. Validar aprovacoes (SG remediation)
 1. Executar runbook:
-   - `./scripts/run_sg_remediation_approval.ps1 -Environment <env> -Region <region> -Project <project> -Profile <profile>`
+   - `./scripts/run_sg_remediation_approval.sh --environment <env> --region <region> --project <project> --profile <profile>`
 2. Confirmar:
    - execucao SSM criada
    - execucao Step Functions criada
@@ -60,7 +60,7 @@ Checklist operacional para validar o ambiente apos `terraform apply`.
 
 ## 8. Validar webhooks approval bridge
 1. Criar `env/<env>/terraform.local.tfvars` via:
-   - `./scripts/configure_approval_webhooks.ps1 ...`
+   - `./scripts/configure_approval_webhooks.sh ...`
 2. Aplicar stack com `-var-file` adicional local.
 3. Publicar mensagem de aprovacao no topico `approval_requests` e validar recebimento.
 
