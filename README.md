@@ -176,6 +176,23 @@ Esta base entrega **P0 + P1 implementados** com padrao modular e pronto para exp
 - Bridge Lambda para encaminhar eventos de aprovacao para webhooks.
 - Suporte a canal ChatOps e ITSM simultaneamente.
 
+## Ferramentas CLI complementares
+
+Este repositorio continua sendo a base IaC e de automacoes gerenciadas. Para troubleshooting, validacao operacional e operacao assistida no terminal, a plataforma agora conta com repositorios irmaos dedicados:
+
+- `aws-sre-doctor`: troubleshooting operacional para ECS, ALB, IAM, quotas, DNS e reachability de APIs AWS.
+- `backup-restore-validator`: validacao de restaurabilidade com foco em RTO/RPO e evidencias.
+- `secrets-drift-detector`: comparacao segura de drift estrutural entre secrets de ambientes.
+- `cloud-cost-waste-finder`: heuristicas praticas de desperdicio operacional e FinOps.
+- `runbook-executor`: execucao auditavel de runbooks com dry-run e gate de aprovacao.
+- `incident-timeline-builder`: consolidacao de evidencias e montagem de timeline/postmortem.
+
+Fluxo recomendado de uso:
+
+- provisionar e operar automacoes AWS neste repositorio;
+- usar as CLIs para diagnostico, validacao e evidencia antes/depois da automacao;
+- anexar os artefatos gerados pelas CLIs em incidentes, changes e postmortems.
+
 ## Requisitos
 - Terraform >= 1.6
 - AWS CLI autenticada com perfil/role valida
