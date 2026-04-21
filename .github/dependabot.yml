@@ -1,0 +1,149 @@
+version: 2
+updates:
+  - package-ecosystem: "terraform"
+    directory: "/iac"
+    schedule:
+      interval: "monthly"
+      time: "09:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 5
+  - package-ecosystem: "terraform"
+    directory: "/modules/automation_approval_bridge"
+    schedule:
+      interval: "monthly"
+      time: "09:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 5
+  - package-ecosystem: "terraform"
+    directory: "/modules/automation_backup_validation"
+    schedule:
+      interval: "monthly"
+      time: "09:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 5
+  - package-ecosystem: "terraform"
+    directory: "/modules/automation_cert_secret_monitor"
+    schedule:
+      interval: "monthly"
+      time: "09:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 5
+  - package-ecosystem: "terraform"
+    directory: "/modules/automation_drift_detection"
+    schedule:
+      interval: "monthly"
+      time: "09:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 5
+  - package-ecosystem: "terraform"
+    directory: "/modules/automation_ecs_rollback"
+    schedule:
+      interval: "monthly"
+      time: "09:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 5
+  - package-ecosystem: "terraform"
+    directory: "/modules/automation_finops_report"
+    schedule:
+      interval: "monthly"
+      time: "09:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 5
+  - package-ecosystem: "terraform"
+    directory: "/modules/automation_incident_evidence"
+    schedule:
+      interval: "monthly"
+      time: "09:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 5
+  - package-ecosystem: "terraform"
+    directory: "/modules/automation_orphan_cleanup"
+    schedule:
+      interval: "monthly"
+      time: "09:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 5
+  - package-ecosystem: "terraform"
+    directory: "/modules/automation_scheduler"
+    schedule:
+      interval: "monthly"
+      time: "09:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 5
+  - package-ecosystem: "terraform"
+    directory: "/modules/automation_sg_exposure_remediation"
+    schedule:
+      interval: "monthly"
+      time: "09:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 5
+  - package-ecosystem: "terraform"
+    directory: "/modules/automation_ssm_runbooks"
+    schedule:
+      interval: "monthly"
+      time: "09:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 5
+  - package-ecosystem: "terraform"
+    directory: "/modules/automation_tag_auditor"
+    schedule:
+      interval: "monthly"
+      time: "09:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 5
+  - package-ecosystem: "terraform"
+    directory: "/modules/common"
+    schedule:
+      interval: "monthly"
+      time: "09:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 5
+  - package-ecosystem: "terraform"
+    directory: "/modules/eventbridge_schedule"
+    schedule:
+      interval: "monthly"
+      time: "09:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 5
+  - package-ecosystem: "terraform"
+    directory: "/modules/lambda_automation"
+    schedule:
+      interval: "monthly"
+      time: "09:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 5
+  - package-ecosystem: "terraform"
+    directory: "/modules/observability"
+    schedule:
+      interval: "monthly"
+      time: "09:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 5
+  - package-ecosystem: "terraform"
+    directory: "/modules/sfn_automation"
+    schedule:
+      interval: "monthly"
+      time: "09:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 5
+  - package-ecosystem: "terraform"
+    directory: "/stacks/dev"
+    schedule:
+      interval: "monthly"
+      time: "09:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 5
+  - package-ecosystem: "terraform"
+    directory: "/stacks/prod"
+    schedule:
+      interval: "monthly"
+      time: "09:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 5
+  - package-ecosystem: "terraform"
+    directory: "/stacks/stage"
+    schedule:
+      interval: "monthly"
+      time: "09:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 5
