@@ -1,0 +1,7 @@
+{
+  "alarm_name": "payments-api-5xx",
+  "environment": "prod",
+  "service": "payments-api",
+  "severity": "critical",
+  "lookback_minutes": 30
+}

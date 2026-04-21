@@ -264,10 +264,11 @@ make test
   - `AWS/States` metric `ExecutionsFailed`
 
 ## CI sugerido
-Arquivo exemplo: `.github/workflows/terraform-ci.yml.example`
+Agora o repositorio inclui workflow real em `.github/workflows/ci.yml`.
 - `terraform fmt -check`
 - `terraform validate`
-- `terraform plan` por stack
+- `terraform validate` por module e por stack
+- `pytest` para handlers Lambda P0/P1
 
 ## Testes
 Testes minimos em `tests/lambdas` para validar comportamento base dos handlers P0/P1.
@@ -282,6 +283,18 @@ pytest -q tests
 2. Habilitar `drift_detection_publish_initial_baseline=true` no primeiro apply.
 3. Configurar webhooks `approval_bridge_chatops_webhook_url` e/ou `approval_bridge_itsm_webhook_url`.
 4. Executar runbook SSM `${name_prefix}-sg-remediation-approval` para aprovacao operacional.
+
+## P2 sugerido
+
+1. Maintenance mode e freeze window para mudancas de plataforma.
+2. Workflow de cost anomaly com trilha de aprovacao humana.
+3. Rollback para Argo Rollouts/EKS integrado ao ecossistema GitOps.
+4. Abertura automatica de incident/problem/change em Jira.
+
+## Exemplos de eventos
+
+- `examples/events/backup-validation.json`
+- `examples/events/incident-evidence.json`
 
 ## Notas de design
 - Nao foram usados modulos comunitarios genericos para logica principal das automacoes.
