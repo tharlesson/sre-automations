@@ -33,19 +33,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for module in modules/*; do
-            terraform -chdir="${module}" init -backend=false
-            terraform -chdir="${module}" validate
-          done
+          while IFS= read -r module; do
+            terraform -chdir="${module}" init -backend=false -input=false -no-color
+            terraform -chdir="${module}" validate -no-color
+          done < <(find modules -mindepth 1 -maxdepth 1 -type d | sort)
 
       - name: Validate stacks
         shell: bash
         run: |
           set -euo pipefail
-          for stack in stacks/*; do
-            terraform -chdir="${stack}" init -backend=false
-            terraform -chdir="${stack}" validate
-          done
+          while IFS= read -r stack; do
+            terraform -chdir="${stack}" init -backend=false -input=false -no-color
+            terraform -chdir="${stack}" validate -no-color
+          done < <(find stacks -mindepth 1 -maxdepth 1 -type d | sort)
 
       - name: Lambda tests
         run: pytest -q tests
